@@ -1,0 +1,52 @@
+Transmission:
+$ gst-launch-1.0 -v ximagesrc use-damage=false xname=/usr/lib/torcs/torcs-bin ! videoconvert ! videoscale ! video/x-raw,format=I420,width=800,height=600,framerate=25/1 ! jpegenc ! rtpjpegpay ! udpsink host=192.168.0.107 port=5000
+
+
+receiving:
+$ gst-launch-1.0 udpsrc port=5000 ! application/x-rtp,encoding-name=JPEG,payload=26 ! rtpjpegdepay ! jpegdec ! autovideosink
+
+
+transmission:
+gst-launch-1.0 v4l2src ! video/x-raw-yuv,width=800,height=608,format='(fourcc)'UYVY ! videoconvert ! ffenc_h263 ! video/x-h263 ! rtph263ppay pt=96 ! udpsink host=172.16.8.46 port=5000 sync=false
+
+receiver:
+gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, clock-rate=90000,payload=96 ! rtph263pdepay queue-delay=0 ! ffdec_h263 ! xvimagesink
+
+
+Transmission:
+$ gst-launch-1.0 -v v4l2src device="/dev/video0" ! videoconvert ! videoscale ! "video/x-raw,format=(string)YUY2,width=800,height=600,framerate=25/1" ! jpegenc ! rtpjpegpay ! udpsink host=172.16.8.46 port=5000
+
+
+gst-launch-1.0 v4l2src device=/dev/video0 ! video/x-raw, format=BGRx, width=800, height=608 ! videoconvert ! videoscale ! jpegenc ! rtpjpegpay ! udpsink host=192.168.0.107 port=5000
+
+gst-launch-1.0 v4l2src device="/dev/video0" ! video/x-raw, format=BGRx, width=800, height=608 ! udpsink host=192.168.0.107 port=5000
+
+gst-launch-1.0 videotestsrc ! x264enc ! video/x-h264, stream-format=byte-stream ! rtph264pay ! udpsink port=5200
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" ! x264enc ! video/x-h264, stream-format=byte-stream ! rtph264pay  ! udpsink host=192.168.0.107 port=5000
+
+gst-launch-1.0 v4l2src do-timestamp=TRUE device=/dev/video0 ! videoconvert ! x264enc bframes=0 key-int-max=30 bitrate=512 ! h264parse ! video/x-h264,stream-format=avc,alignment=au,width=800,height=608 ! udpsink host=192.168.0.107 port=5000
+
+gst-launch-1.0 udpsrc port=5000 ! application/x-rtp, encoding-name=H264, payload=96 ! rtph264depay ! h264parse ! avdec_h264 ! autovideosink
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" ! video/x-raw, format=BGRx, width=800, height=608 ! videoconvert ! x264enc ! video/x-h264, stream-format=byte-stream ! rtph264pay  ! udpsink host=10.0.0.2 port=5000
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" ! video/x-raw, format=BGRx, width=800, height=608 ! videoconvert ! x264enc tune=zerolatency ! video/x-h264, stream-format=byte-stream ! rtph264pay pt=96  ! udpsink host=10.0.0.2 port=5000
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" ! video/x-raw, format=BGRx, width=800, height=608 ! videoconvert ! x264enc tune=zerolatency ! video/x-h264, stream-format=byte-stream ! h264parse ! rtph264pay pt=96  ! udpsink host=10.0.0.2 port=5000
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" num-buffers=1 ! video/x-raw ! jpegenc ! udpsink host=172.16.7.15 port=5001
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" ! rtpvrawpay ! udpsink host=172.16.7.15 port=5001 sync=false async=false -v
+to grayscale:
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" ! avdec_mjpeg ! videoconvert ! video/x-raw, format=GRAY8, width=800, height=608 ! autovideosink
+
+
+ ./test-launch "nvarguscamerasrc ! video/xraw(memory:NVMM) width=1920 height=1080 framerate=30/1 format=NV12 ! omxh264enc iframeinterval=15! h264parse ! rtph264pay name=pay0 pt=96"
+
+
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" ! video/x-raw, format=BGRx, width=800, height=608 ! qtdemux name=demux \ demux.video_0 ! queue ! h264parse ! avdec_h264 ! videoconvert ! x264enc ! rtph264pay ! udpsink host=127.0.0.1 port = 5000
+
+gst-launch-1.0 -v v4l2src device="/dev/video0" ! videoconvert ! videoscale ! video/x-raw, format=YUY2, width=800, height=608 ! jpegenc ! rtpjpegpay  ! udpsink host=192.168.1.10 port=5001
