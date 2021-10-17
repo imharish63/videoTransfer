@@ -54,16 +54,15 @@ while(True):
             packetNumFrame = 0
         else:
             print("program looking out of bounds for image data ")
-        
-        
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
-            #Waits for a user input to quit the application
         #print(buf)
         sock.sendto(buf_header, (UDP_IP, UDP_PORT))
         seq_num += 1
         packetNumFrame += 1
         
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
+            #Waits for a user input to quit the application
+               
     
 # When everything done, release the capture
 cap.release()
