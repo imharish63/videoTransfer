@@ -20,11 +20,11 @@ from torch.utils.dlpack import to_dlpack
 # Open the device at the ID 0
 # Use the camera ID based on
 # /dev/videoID needed
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 UDP_IP = "192.168.1.10"
 UDP_PORT = 5001
-WIDTH = 640
-HEIGHT = 360
+WIDTH = 320
+HEIGHT = 240
 
 #Check if camera was opened correctly
 if not (cap.isOpened()):
@@ -55,12 +55,16 @@ while fps._numFrames < args["num_frames"]:
     #print(frame);
     #byte_frame = frame.tobytes()
     #print(byte_frame)
-    
-    
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    transform = transforms.Compose([transforms.ToTensor()])
+    frame_tensor = transform(frame)
+    dlp = to_dlpack(frame_tensor)
+    dlp.get_shape()
+    print (dlp)
+    # dlp_byte = np.array(dlp.flatten(order='C').tolist(),dtype=np.uint8)
+    gray1 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     #dlp1 = to_dlpack(gray1)
-    num_rows, num_cols = gray.shape
-    gray=np.array(np.reshape(gray, (num_rows * num_cols) , order='F'),dtype=np.uint8)
+    num_rows, num_cols = gray1.shape
+    gray=np.array(np.reshape(gray1, (num_rows * num_cols) , order='F'),dtype=np.uint8)
     count +=1
     #gray_byte = gray.tobytes()
     #gray_byte = gray.flatten(order='C').hex()

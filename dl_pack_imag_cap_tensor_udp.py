@@ -14,24 +14,25 @@ import concurrent.futures
 import numpy as np
 from imutils.video import FPS
 import torch
-# from PIL import image
+from PIL import Image
 import torchvision.transforms as transforms
 from torch.utils.dlpack import to_dlpack
+from torch.utils.dlpack import from_dlpack
 # Open the device at the ID 0
 # Use the camera ID based on
 # /dev/videoID needed
-cap = cv2.VideoCapture(1)
+cap = cv2.VideoCapture(0)
 UDP_IP = "192.168.1.10"
 UDP_PORT = 5001
 WIDTH = 640
-HEIGHT = 360
+HEIGHT = 480
 
 #Check if camera was opened correctly
 if not (cap.isOpened()):
     print("Could not open video device")
 
 ap = argparse.ArgumentParser()
-ap.add_argument("-n", "--num-frames", type=int , default=15,
+ap.add_argument("-n", "--num-frames", type=int , default=1000,
             help= "# of frames to loop over for FPS test")
 ap.add_argument("-d", "--display", type=int , default=-1, 
             help = "Whether or not frames should be displayed")
@@ -57,36 +58,58 @@ while fps._numFrames < args["num_frames"]:
     #print(byte_frame)
     
     
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    #dlp1 = to_dlpack(gray1)
-    num_rows, num_cols = gray.shape
-    gray=np.array(np.reshape(gray, (num_rows * num_cols) , order='F'),dtype=np.uint8)
-    count +=1
+    gray1 = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.ConvertImageDtype(torch.uint8)])
+    tensor = transform(gray1)
+    # print("image data grey scale")
+    # print(gray1)
+    # print(tensor)
+    # tensor_flatten = torch.flatten(tensor)
+    # print(tensor_flatten)
+    dlp1 = to_dlpack(tensor)
+    # dlp1_flatten = torch.flatten(dlp1)
+    # print(dlp1_flatten)
+    # print(dlp1.datapointer)
+    tensor1 = from_dlpack(dlp1)
+    # print(tensor1)
+    tensor_flatten1 = torch.flatten(tensor1)
+    # print(tensor_flatten1.size(dim=0)/1400)
+    # print(tensor_flatten1)
+    # print(tensor_flatten1[-1])
+    # num_rows, num_cols = gray1.shape
+    # gray=np.array(np.reshape(gray1, (num_rows * num_cols) , order='F'),dtype=np.uint8)
+    # count +=1
     #gray_byte = gray.tobytes()
     #gray_byte = gray.flatten(order='C').hex()
     #print(gray)
     #print(count)
-    
-    for i in range (int(len(gray)/1400)+1):
+    if (((tensor_flatten1.size(dim=0)//1400))==0):
+        packetCount = int((tensor_flatten1.size(dim=0)/1400))
+    else :
+        packetCount = (int(tensor_flatten1.size(dim=0)/1400))+1
         
-        if (i <int(len(gray)/1400)):
+    for i in range (packetCount):
+        
+        if (i < packetCount):
             markerBit = 0
             packetNumFrame = (packetNumFrame & 0x0000ffff)  
             buf = np.array([(seq_num & 0xff000000) >> 24 ,(seq_num & 0x00ff0000) >>16 ,(seq_num & 0x0000ff00) >>8 , (seq_num & 0x000000ff) ,markerBit ,(packetNumFrame & 0x00ff0000) >> 16,(packetNumFrame & 0x0000ff00)>>8 ,(packetNumFrame & 0x000000ff),(int(WIDTH/8) & 0x000000ff ),(int(HEIGHT/8) & 0x000000ff )], dtype=np.uint8)
-            buf_header = np.concatenate((buf , gray[1400*i:(1400+1400*i)]), axis=None)
+            buf_header = np.concatenate((buf , tensor_flatten1[1400*i:(1400+1400*i)]), axis=None)
             buf = bytes(buf_header)
         
-        elif (i == int(len(gray)/1400)):
+        elif (i == packetCount):
             markerBit = 1
             packetNumFrame = (packetNumFrame & 0x0000ffff)  
             buf = np.array([(seq_num & 0xff000000) >> 24 ,(seq_num & 0x00ff0000) >>16 ,(seq_num & 0x0000ff00) >>8 , (seq_num & 0x000000ff) ,markerBit ,(packetNumFrame & 0x00ff0000) >> 16,(packetNumFrame & 0x0000ff00)>>8 ,(packetNumFrame & 0x000000ff),(int(WIDTH/8) & 0x000000ff ),(int(HEIGHT/8) & 0x000000ff )], dtype=np.uint8)
-            buf_header = np.concatenate((buf , gray[1400*i:len(gray)]), axis=None)
+            buf_header = np.concatenate((buf , tensor_flatten1[1400*i:tensor_flatten1.size(dim=0)]), axis=None)
             buf = bytes(buf_header)
             packetNumFrame = 0
         else:
             print("program looking out of bounds for image data ")
          
-     #print(buf)
+        # print(buf)
         sock.sendto(buf_header, (UDP_IP, UDP_PORT))
         seq_num += 1
         packetNumFrame += 1
